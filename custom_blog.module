@@ -1,0 +1,469 @@
+<?php
+  
+function custom_blog_menu(){
+  $items = array();
+  $items['blogs/%'] = array(
+      'title' => t('Manage Blog'),
+      'page callback' => '_custom_blog_manage',
+      'page arguments' => array(1),
+      'access arguments' => array('access content'),
+		  'type' => MENU_CALLBACK,
+  );
+  
+  $items['blogs/%/posts'] = array(
+      'title' => 'Posts - Manage Blog',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('custom_blog_posts'),
+      'access arguments' => array('access content'),
+      'file' => 'custom_blog.posts.inc',
+      'type' => MENU_CALLBACK,
+  );
+  $items['blogs/%/draft'] = array(
+      'title' => 'Draft - Manage Blog',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('custom_blog_draft'),
+      'access arguments' => array('access content'),
+      'file' => 'custom_blog.draft.inc',
+      'type' => MENU_CALLBACK,
+  );
+  
+  $items['blogs/%/bloggerbio'] = array(
+      'title' => 'Blogger Biography - Manage Blog',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('custom_blog_bio'),
+      'access arguments' => array('access content'),
+      'file' => 'custom_blog.bio.inc',
+      'type' => MENU_CALLBACK,
+  );
+  $items['blogs/%/followers'] = array(
+      'title' => 'Followers - Manage Blog',
+      'page callback' => 'custom_blog_followers',
+      'page arguments' => array('custom_blog_followers'),
+      'access arguments' => array('access content'),
+      'file' => 'custom_blog.followers.inc',
+      'type' => MENU_CALLBACK,
+  );
+  
+  $items['blogs/%/invite_friends'] = array(
+      'title' => 'Invite Friends - Manage Blog',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('custom_blog_invite_friends'),
+      'access arguments' => array('access content'),
+      'file' => 'custom_blog.invite_friends.inc',
+      'type' => MENU_CALLBACK,
+  );
+  
+  
+  $items['blogs/%/invite_manage_blog'] = array(
+      'title' => 'Invite Manage Blog  - Manage Blog',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('custom_blog_invite_manage_blog'),
+      'access arguments' => array('access content'),
+      'file' => 'custom_blog.invite_manage_blog.inc',
+      'type' => MENU_CALLBACK,
+  );
+  
+  
+   $items['blogs/%/user_blog_post'] = array(
+      'title' => t('Manage Blog'),
+      'page callback' => '_custom_user_blog_post',
+      'page arguments' => array(1),
+      'access arguments' => array('access content'),
+		  'type' => MENU_CALLBACK,
+  );
+  
+  return $items;
+}
+
+function _custom_blog_manage($nid){
+  return '';
+}
+
+function custom_blog_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks[0]['info'] = t('Blog Dashboard');
+    $blocks[1]['info'] = t('Blog Blogger Bio Sumary');  
+    return $blocks;
+  }
+  else if ($op == 'view') {
+    switch ($delta) {
+      case 0:
+        $block['content'] = _custom_blog_dashboard();
+        break;
+      //case 1:
+     //   $block['content'] = _custom_blog_blogger_bio();
+      //  break;
+    }
+    return $block;
+  }
+}
+
+/**
+ * Block Show Dashboard
+*/
+function _custom_blog_dashboard() {
+  global $user;
+  if (!is_numeric($nid = arg(1))) {
+    if(!is_numeric($nid = arg(3))){
+      $sql = db_query('SELECT COUNT(uid) as blog_count FROM {og_uid} WHERE uid='.$user->uid.'');
+      $row = db_fetch_object($sql);
+      if (!$row) {        
+        if (!in_array('administer', $user->roles)) {
+          return '';
+        }        
+      }      
+    }    
+  }
+  
+  $node = node_load($nid);
+  if($node->type == 'blog') {
+    $nid = $node->nid;
+    
+  }elseif($node->type == 'blog_post'){
+      $sql = db_query('SELECT group_nid FROM {og_ancestry} WHERE nid='.$node->nid.'');
+      while($row = db_fetch_object($sql)){
+        $nid = $row->group_nid; 
+      }
+  }else{
+    $nid= null;
+  }
+  
+  $output = array();
+  // Blog Create
+  $output[] = '<ul class="blog_dashboard">';
+  $output[] = '<li>'.l(t('View Blog <div class="bd-view-blog"><span>view</span></div>'), 'node/'.$nid,array('html' => TRUE)).'</li>';
+  $output[] = '<li>'.l(t('Create New Post <div class="bd-create-blog"><span>create</span></div>'), 'node/add/blog-post/'.$nid,array('html' => TRUE)).'</li>';
+  $output[] = '</ul>';
+  
+  // For Blogger
+  $output[] = '<div class="blog_dasboard_title" >';
+  $output[] = t('For Blogger');
+  $output[] = '</div>';
+  $output[] = '<ul class="blog_dashboard" >';
+  $output[] = '<li>'.l(t('Drafts <div class="bd-drafts"><span>'._custom_blog_count_blog_draft($nid).'</span></div>'),'blogs/'.$nid.'/draft',array('html' => TRUE)).'</li>';
+  $output[] = '<li>'.l(t('Posts <div class="bd-posts" ><span>'._custom_blog_count_blog_posts($nid).'</span></div>'),'blogs/'.$nid.'/posts',array('html' => TRUE)).'</li>';
+  $output[] = '<li>'.l(t('Blogger Biography <div class="bd-blogger-biography" ></div>'),'blogs/'.$nid.'/bloggerbio',array('html' => TRUE)).'</li>';
+  $output[] = '<li>'.l(t('Followers <div class="bd-followers" ><span>'._custom_blog_count_member_followers($nid).'</span></div>'),'blogs/'.$nid.'/followers',array('html' => TRUE)).'</li>';
+  $output[] = '<li>'.l(t('Invite Friends to Follow <div class="bd-invite" ></div>'),'blogs/'.$nid.'/invite_friends',array('html' => TRUE)).'</li>';
+  $output[] = '</ul>';
+  
+  $user_admin = _custom_blog_get_user($nid);
+  if($user_admin->uid == $user->uid || $user->roles[3] == 'administer'){
+  // For Owner of the Blog
+  $output[] = '<div class="blog_dasboard_title" >';
+  $output[] = t('For Owner of the Blog');
+  $output[] = '</div>';
+  $output[] = '<ul class="blog_dashboard" >';
+  $output[] = '<li>'.l(t('Site Settings <div class="bd-setting" ></div>'),'#',array('html' => TRUE)).'</li>';
+  $output[] = '<li>'.l(t('Comments <div class="bd-comments"><span>12</span></div>'),'#',array('html' => TRUE)).'</li>';
+  $output[] = '<li>'.l(t('Manage and Invite Bloggers <div class="bd-manage-invite"></div>'),'blogs/'.$nid.'/invite_manage_blog',array('html' => TRUE)).'</li>';
+  }
+  $output[] = '</ul>';
+  
+  return implode('', $output);
+}
+
+/**
+ * Block
+ * Blog Show blogger bio in node blog
+*/
+
+//function _custom_blog_blogger_bio(){
+//  $nid = arg(1);
+//  $output = '';
+//  $sql = db_query('SELECT * FROM {blogger_bio} WHERE nid = '.$nid.' ');
+//  while($row = db_fetch_object($sql)){
+//    $node_profile_contents = content_profile_load('basic', $row->uid, $lang = '', $reset = null);
+//  
+//    $value_iam = _custom_blog_get_value_select('field_iam',$node_profile_contents->field_iam[0]['value']);
+//    $output .= '<div class="blogger_warpper" >';
+//    
+//    $output .= '<div class="blog_blogger_bio_title" >Meet the Blogger</div>';
+//    
+//    $output .= '<div class="blog_blogger_content" >';
+//    $output .= '<div class="blog_blogger_images" >'._custom_blog_blogger_bio_get_pic($row->uid).'</div>';
+//    
+//    $output .= '<div class="blog_blogger_body" >';
+//    $output .= '<div class="blog_blogger_name" >'._custom_blog_blogger_bio_get_user_name($row->uid).'</div>';
+//    $output .= '<div class="blog_blogger_iam" >'.$value_iam.'</div>';
+//    $output .= '<div class="blog_blogger_univer" >'.$node_profile_contents->field_current_institution[0]['value'].'</div>';
+//    $output .= '<div class="blog_blogger_summary" >'._custom_blog_get_summary($row->nid,$row->uid).'</div>';
+//    $output .= '</div>';
+//    
+//    $output .= '</div>';
+//    $output .= '<div class="clearfix" ></div>';
+//    $url_user = url('user/'.$row->uid);
+//    $output .= '<div class="blog_blogger_bio_view_profile" ><a href="'.$url_user.'"><span>View Profile</span></a></div>';
+//    $output .= '</div>';
+//  }
+//  return $output;
+//}
+
+/**
+ * Implementation of hook_theme()
+ */
+function custom_blog_theme() {
+  return array(
+    
+    'custom_blog_admin_nodes' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'custom_blog.posts.inc',
+    ),
+    'custom_blog_draft_nodes' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'custom_blog.draft.inc',
+    ),
+    'custom_blog_bio_nodes' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'custom_blog.bio.inc',
+    ),
+    'custom_blog_invite_manage_blog_nodes' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'custom_blog.invite_manage_blog.inc',
+    ),
+    'custom_blog_invite_friends_nodes' => array(
+      'arguments' => array('form' => NULL),
+      'file' => 'custom_blog.invite_friends.inc',
+    ),
+    'custom_blog_user_post_view' => array(
+      'function' => '_custom_user_blog_post',
+    ),
+  );
+}
+
+/**
+ * Quick tab link
+*/
+function _custom_blog_link($active =NULL,$nid = NULL){
+  $links = array(
+    array(
+      'name' => 'draft',
+      'link' => '/blogs/'.$nid.'/draft',
+    ),
+    array(
+      'name' => 'posts',
+      'link' => '/blogs/'.$nid.'/posts'
+    ),
+    array(
+      'name' => 'your blog bio',
+      'link' => '/blogs/'.$nid.'/bloggerbio'
+    ),
+    array(
+      'name' => 'followers',
+      'link' => '/blogs/'.$nid.'/followers'
+    ),
+    array(
+      'name' => 'invite friends',
+      'link' => '/blogs/'.$nid.'/invite_friends'
+    ),
+  );
+  $output = '';
+  $output .='<div class="manage_blog_link" >';
+  $output .='<ul>';
+  foreach($links as $link){
+    if(!empty($active)){
+      if($active == $link['name']){
+        $output .= '<li class="active" ><a href="'.$link['link'].'" class="active" >'.$link['name'].'</a></li>';
+      }else{
+        $output .= '<li><a href="'.$link['link'].'" >'.$link['name'].'</a></li>';
+      } 
+    }
+  }
+  $output .='</ul>';
+  $output .='</div>';
+  return $output;
+}
+function _custom_blog_manage_title($title =null){
+  return '<div class="blogs_manage_title" >Manage Blog: '.$title .'</div>';
+}
+
+
+function _custom_blog_count_blog_posts($nid = NULL){
+  if(empty($nid)){
+    return 0;
+  }
+  $result = db_query('SELECT count(n.nid) as posts FROM {node} n  INNER JOIN {og_ancestry} an ON n.nid = an.nid INNER JOIN {users} u ON n.uid = u.uid  WHERE n.type = "blog_post"  AND an.group_nid = '.$nid.' AND n.status = 1 ORDER BY n.changed DESC');
+  while($row = db_fetch_object($result)){
+     return $row->posts;
+  }
+}
+function _custom_blog_count_blog_draft($nid = NULL){
+  if(empty($nid)){
+    return 0;
+  }
+  $result = db_query('SELECT count(n.nid) as draft FROM {node} n  INNER JOIN {og_ancestry} an ON n.nid = an.nid INNER JOIN {users} u ON n.uid = u.uid  WHERE n.type = "blog_post"  AND an.group_nid = '.$nid.' AND n.status = 0 ORDER BY n.changed DESC');
+  while($row = db_fetch_object($result)){
+     return $row->draft;
+  }
+}
+
+
+
+/**
+ * Get uid
+ * @param $nid from GET
+ * @return uid
+*/
+function _custom_blog_get_user($nid = null){
+  if(empty($nid)){
+    return null;
+  }
+  $result = db_query('SELECT uid FROM {node} WHERE nid = '.$nid.' ');
+  while($row = db_fetch_object($result)){
+    $uid = $row->uid;
+  }
+  return user_load($uid);
+}
+
+/**
+ * Get User Name
+*/
+function _custom_blog_blogger_bio_get_user_name($uid,$type = null,$nid = null) {
+  if (isset($uid)) {
+    $results = db_fetch_object(db_query("SELECT content_type_basic.field_first_name_value as fname ,content_type_basic.field_last_name_value  as lname FROM content_type_basic,node WHERE content_type_basic.vid=node.vid AND content_type_basic.nid=node.nid AND node.uid='%s'", $uid));
+    if ($results->fname != '' || $results->lname != '') {
+      $username = $results->fname . ' ' . $results->lname;
+    }
+    else {
+      $username = db_result(db_query("SELECT name FROM {users} WHERE uid = '%s'", $uid));
+    }
+    if(empty($type)){
+      return l($username, 'blogs/user/' . $uid );
+    }elseif(isset($nid)){
+      return l($username, 'blogs/user/'.$uid.'/'.$nid );
+    }else{
+      return $username;
+    }
+    
+  }
+}
+/**
+ * Get user Pic 
+ * @param uid
+ * @param $image_type : Kieu Image cache
+ * @return Image Cache
+*/
+
+function _custom_blog_blogger_bio_get_pic($uid,$image_type = null){
+  if(empty($image_type)){
+    $image_type = 'blogger_bio_image';
+  }
+  $userPicQry=db_result(db_query("SELECT f.filepath FROM {content_type_basic} ctb,{files} f,{node} n WHERE f.fid=ctb.field_user_picture_fid AND n.nid =ctb.nid AND n.type='basic' AND n.uid=%d",$uid));
+  
+  $defaultImg="/sites/default/files/thumbbig.gif";
+  
+  $userPicPath=$userPicQry?$userPicQry:$defaultImg;
+  
+  return theme('imagecache', $image_type, $userPicPath, $alt, $title, $attributes);
+}
+
+/**
+ * Get value field Iam in blogger
+ * @param $field_name in cck
+ * @param $value_id get text
+ * @return Text with $value_id
+*/
+function _custom_blog_get_value_select($field_name,$value_id = NULL) {
+
+  $query = "SELECT global_settings
+  FROM {content_node_field} AS cnt
+  WHERE cnt.field_name = '" . $field_name . "'";
+
+  $queryResult = db_query($query);
+
+  while ($meeting_types = db_fetch_object($queryResult)) {
+    $meetings = unserialize($meeting_types->global_settings);
+  }
+  $meeting_list = explode("\n", $meetings['allowed_values']);
+  $array = array();
+  foreach ($meeting_list as $key => $meeting_type) {
+    if (strrpos($meeting_type, "|")) {
+      $meeting_type = explode("|", $meeting_type);
+      $array[$meeting_type[0]] = $meeting_type[1];
+    }
+    else {
+      $array[$meeting_type] = $meeting_type;
+    }
+  }
+  
+  if(isset($value_id)){
+    foreach($array as $value => $key){
+      if($value == $value_id){
+        return $key; 
+      }
+    }
+  }else{
+    return $array;
+  }
+  return null;
+}
+/**
+ * Function Get Sumary in Blogger Bio 
+ * Table : blogger_bio
+ * @param nid in arg(0)
+ * @return Summary 
+*/
+function _custom_blog_get_summary($nid= null,$uid = null){
+  if(empty($nid)){
+    return null;
+  }
+  $result = db_query('SELECT summary FROM {blogger_bio} WHERE nid ='.$nid.' AND uid = '.$uid.'');
+  while($row = db_fetch_object($result)){
+    return $row->summary;
+  }
+  return null;
+}
+/**
+ * Function Count member followers
+ * @param $nid , Get arg(1)
+ * @return Member Followers 
+*/
+function _custom_blog_count_member_followers($nid = null){
+  if(empty($nid)){
+    return null;
+  }
+  $result = db_query('SELECT count(content_id) as followers FROM {flag_content} WHERE content_id = '.$nid.' ');
+  while($row = db_fetch_object($result)){
+    return $row->followers;
+  }
+}
+
+
+
+function _custom_user_blog_post() {
+  $uid = arg(2);
+  $node_account = db_result(db_query("SELECT nid FROM {node} WHERE type='basic' AND uid = %d", $uid));
+  $account_profile =node_load($node_account);
+  $account = user_load($uid);
+  $items = '';
+  $items .= '<div class="blog" id="blogs_users_post">
+        <div class="blogger_warpper">
+        <div class="blogger_bio_content" style="margin-left:20px;">
+        <div class="blogger_images"><img class="imagecache imagecache-blogger_bio_image" title="" alt="" 
+        src="http://staging.academicroom.com/sites/default/files/imagecache/blogger_bio_image//sites/default/files/thumbbig.gif" />
+        </div>
+        <div class="blogger_body">
+            <div class="blogger_name"><a href="">' . $account_profile->title .'</a></div>
+            <div class="blogger_iam"></div>
+            <div class="blogger_univer"></div>
+        </div>
+        <div class="clearfix"></div>
+        <div class="blog_blogger_bio_view_profile"><a href="/users/' . $account->name .'"><span>View Profile</span></a></div>
+        </div>
+        </div></div>' ;
+  return $items;
+}
+
+
+/**
+ * Hook View Query Alter
+*/
+function custom_views_query_alter(&$view, &$query) {
+  
+  if($view->name == 'view_user_blog_post'){
+    $nid = arg(3);
+    $query->add_table('og_ancestry');
+    $query->where[0]['clauses'][] = 'node.nid = og_ancestry.nid';
+    $query->where[0]['clauses'][] = 'og_ancestry.group_nid ='.$nid;
+  }
+}

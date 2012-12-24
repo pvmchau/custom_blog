@@ -1,0 +1,8 @@
+name = Customize Blog
+description = "Customize for this site"
+package = @ Custom
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-06-16
+version = "6.x"
+core = "6.x"
