@@ -105,13 +105,7 @@ function _custom_blog_dashboard() {
   global $user;
   if (!is_numeric($nid = arg(1))) {
     if(!is_numeric($nid = arg(3))){
-      $sql = db_query('SELECT COUNT(uid) as blog_count FROM {og_uid} WHERE uid='.$user->uid.'');
-      $row = db_fetch_object($sql);
-      if (!$row) {        
-        if (!in_array('administer', $user->roles)) {
-          return '';
-        }        
-      }      
+      return '';         
     }    
   }
   
@@ -126,6 +120,10 @@ function _custom_blog_dashboard() {
       }
   }else{
     $nid= null;
+  }
+  
+  if (!(_custom_blog_check_member_role($nid, $user->uid) || $user->roles[3] == 'administer')) {
+    return '';
   }
   
   $output = array();
@@ -147,15 +145,14 @@ function _custom_blog_dashboard() {
   $output[] = '<li>'.l(t('Invite Friends to Follow <div class="bd-invite" ></div>'),'blogs/'.$nid.'/invite_friends',array('html' => TRUE)).'</li>';
   $output[] = '</ul>';
   
-  $user_admin = _custom_blog_get_user($nid);
-  if($user_admin->uid == $user->uid || $user->roles[3] == 'administer'){
+  if( _custom_blog_check_admin_role($nid, $user->uid) || $user->roles[3] == 'administer'){
   // For Owner of the Blog
   $output[] = '<div class="blog_dasboard_title" >';
   $output[] = t('For Owner of the Blog');
   $output[] = '</div>';
   $output[] = '<ul class="blog_dashboard" >';
-  $output[] = '<li>'.l(t('Site Settings <div class="bd-setting" ></div>'),'#',array('html' => TRUE)).'</li>';
-  $output[] = '<li>'.l(t('Comments <div class="bd-comments"><span>12</span></div>'),'#',array('html' => TRUE)).'</li>';
+  $output[] = '<li>'.l(t('Site Settings <div class="bd-setting" ></div>'),'node/'.$nid.'/edit',array('html' => TRUE)).'</li>';
+  $output[] = '<li>'.l(t('Comments <div class="bd-comments"><span>0</span></div>'),'#',array('html' => TRUE)).'</li>';
   $output[] = '<li>'.l(t('Manage and Invite Bloggers <div class="bd-manage-invite"></div>'),'blogs/'.$nid.'/invite_manage_blog',array('html' => TRUE)).'</li>';
   }
   $output[] = '</ul>';
@@ -313,6 +310,65 @@ function _custom_blog_get_user($nid = null){
     $uid = $row->uid;
   }
   return user_load($uid);
+}
+
+/**
+ * Get uid of group admin
+ * @param $nid from GET
+ * @return uids
+*/
+function _custom_blog_get_admin($nid = null){
+  if(empty($nid)){
+    return array();
+  }
+  $result = db_query('SELECT uid FROM {og_uid} WHERE nid = '.$nid.'AND is_admin = 1 AND is_active = 1 ');
+  $admins = db_fetch_array($result);
+  if ($admins) {
+    return $admins;
+  }
+  else {
+    return array();
+  } 
+}
+
+/**
+ * Check role group admin
+ * @param $nid from GET
+ * @param $uid from GET
+ * @return TRUE if user is group admin
+*/
+function _custom_blog_check_admin_role($nid = null, $uid = null){
+  if(empty($nid) || empty($uid)){
+    return FALSE;
+  }
+  
+  $result = db_query('SELECT uid FROM {og_uid} WHERE nid = '.$nid.' AND uid = '.$uid.' AND is_admin = 1 AND is_active = 1 ');
+  $admins = db_fetch_object($result);
+  if ($admins) {
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
+/**
+ * Check role group member
+ * @param $nid from GET
+ * @param $uid from GET
+ * @return TRUE if user is group member
+*/
+function _custom_blog_check_member_role($nid = null, $uid = null){
+  if(empty($nid) || empty($uid)){
+    return FALSE;
+  }
+  
+  $result = db_query('SELECT uid FROM {og_uid} WHERE nid = '.$nid.' AND uid = '.$uid.' AND is_active = 1 ');
+  $admins = db_fetch_object($result);
+  if ($admins) {
+    return TRUE;
+  }
+  
+  return FALSE;
 }
 
 /**
