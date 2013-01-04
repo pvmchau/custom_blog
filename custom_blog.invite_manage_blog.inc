@@ -98,21 +98,36 @@ function theme_custom_blog_invite_manage_blog_nodes(&$form){
 }
 
 function custom_blog_list_user_write_blog($nid) {
-  $sql = db_query("SELECT * FROM og_uid WHERE nid = %d", $nid);
+  $sql = db_query("SELECT * FROM og_uid WHERE nid = %d ORDER BY is_admin DESC, is_active ASC", $nid);
   $items = array();
   while($row = db_fetch_object($sql)) {
-    $user = user_load(array('uid' => $row->uid));
-    $number_post = db_result(db_query("SELECT COUNT(nid) FROM {node} WHERE type='blog_post' AND uid = %d",$row->uid));
-    $last_login =  time() - $user->login;
-    $login = custom_blog_last_login($last_login,6);
+    $user = user_load(array('uid' => $row->uid));    
     if($user->status == 1){
-      $status = 'Publisher';
-    }else{
-      $status = 'Not Publisher';
-    }
-    $username_link = url('user/'.$user->uid);
-    $username = '<a href="'.$username_link.'" >'.$user->name.'</a>';
-    $items[] = array($username, $status, $number_post, $login, '');
+      $username_link = url('user/'.$user->uid);
+      $username = '<a href="'.$username_link.'" >'.$user->name.'</a>';
+      $last_login =  time() - $user->login;
+      $login = format_interval($last_login) . ' ago';
+      $number_post = db_result(db_query("SELECT COUNT(nid) FROM {node} WHERE type='blog_post' AND uid = %d",$row->uid));
+          
+      if($row->is_active) {
+        if ($row->is_admin) {
+          $status = 'Admin';
+          $action_admin_role_edit = l(t('Remove Admin'), 'og/delete_admin/'.$nid.'/'.$user->uid, array('query' => drupal_get_destination()));        
+        } else {
+          $status = 'Blogger';
+          $action_admin_role_edit = l(t('Make Admin'), 'og/create_admin/'.$nid.'/'.$user->uid, array('query' => drupal_get_destination()));
+        }
+        $action_membership_edit = l(t('Delete'), 'og/unsubscribe/'.$nid.'/'.$user->uid, array('query' => drupal_get_destination()));
+      } else {
+        $status = 'Blogger (approval needed)';
+        $action_membership_edit_approve = l(t('approve'), 'og/approve/'.$nid.'/'.$user->uid.'/'.og_get_token($nid), array('query' => drupal_get_destination()));
+        $action_membership_edit_deny = l(t('deny'), 'og/deny/'.$nid.'/'.$user->uid.'/'.og_get_token($nid), array('query' => drupal_get_destination()));
+        $action_membership_edit = 'Request: '.$action_membership_edit_approve.' or '.$action_membership_edit_deny;
+        $action_admin_role_edit = '';
+      }
+      
+      $items[] = array($username, $status, $number_post, $login, $action_membership_edit.'<br>'.$action_admin_role_edit);
+    }    
   }
   //dpm($items);
   return theme_table(array('Name', 'Type', 'Posts', 'Last Online', 'Action'), $items);

@@ -14,7 +14,8 @@ function custom_blog_menu(){
       'title' => 'Posts - Manage Blog',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('custom_blog_posts'),
-      'access arguments' => array('access content'),
+      'access callback' => '_custom_blog_access_manage',
+      //'access arguments' => array('access content'),
       'file' => 'custom_blog.posts.inc',
       'type' => MENU_CALLBACK,
   );
@@ -22,7 +23,8 @@ function custom_blog_menu(){
       'title' => 'Draft - Manage Blog',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('custom_blog_draft'),
-      'access arguments' => array('access content'),
+      'access callback' => '_custom_blog_access_manage',
+      //'access arguments' => array('access content'),
       'file' => 'custom_blog.draft.inc',
       'type' => MENU_CALLBACK,
   );
@@ -31,7 +33,8 @@ function custom_blog_menu(){
       'title' => 'Blogger Biography - Manage Blog',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('custom_blog_bio'),
-      'access arguments' => array('access content'),
+      'access callback' => '_custom_blog_access_manage',
+      //'access arguments' => array('access content'),
       'file' => 'custom_blog.bio.inc',
       'type' => MENU_CALLBACK,
   );
@@ -58,7 +61,8 @@ function custom_blog_menu(){
       'title' => 'Invite Manage Blog  - Manage Blog',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('custom_blog_invite_manage_blog'),
-      'access arguments' => array('access content'),
+      'access callback' => '_custom_blog_access_manage',
+      //'access arguments' => array('access content'),
       'file' => 'custom_blog.invite_manage_blog.inc',
       'type' => MENU_CALLBACK,
   );
@@ -73,6 +77,34 @@ function custom_blog_menu(){
   );
   
   return $items;
+}
+
+function _custom_blog_access_manage() {
+  global $user;
+  //kpr($user); exit;
+  if (!is_numeric($nid = arg(1))) {
+    if(!is_numeric($nid = arg(3))){
+      return FALSE;         
+    }    
+  }
+  
+  $node = node_load($nid);
+  if ($node->type == 'blog') {
+    $nid = $node->nid;    
+  } elseif ($node->type == 'blog_post') {
+    $sql = db_query('SELECT group_nid FROM {og_ancestry} WHERE nid='.$node->nid.'');
+    while($row = db_fetch_object($sql)){
+      $nid = $row->group_nid; 
+    }
+  } else {
+    return FALSE;
+  }
+  
+  if (!(_custom_blog_check_admin_role($nid, $user->uid) || $user->roles[3] == 'administer')) {
+    return FALSE;
+  }
+  
+  return TRUE;  
 }
 
 function _custom_blog_manage($nid){
